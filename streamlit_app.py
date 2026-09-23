@@ -18,7 +18,7 @@ if "active_multiplier" not in st.session_state:
 if "grid" not in st.session_state:
     st.session_state.grid = [["💎" for _ in range(6)] for _ in range(5)]
 
-# --- NEW BONUS ROUND STATES ---
+# --- BONUS ROUND STATES ---
 if "free_spins_left" not in st.session_state:
     st.session_state.free_spins_left = 0
 if "is_in_bonus" not in st.session_state:
@@ -73,7 +73,7 @@ def spin_engine(bet_amount):
                 row_symbols[col_idx] = SCATTER_BONUS_SYMBOL
             elif rand_roll < (0.04 + orb_chance):  # Orb chance
                 row_symbols[col_idx] = MULTIPLIER_ORB_SYMBOL
-                orb_value = random.choice([2, 3, 5, 8, 10, 15, 25, 50])
+                orb_value = random.choice([2, 5, 10, 25, 50])
                 multiplier_values_found.append(orb_value)
                 
         new_grid.append(row_symbols)
@@ -172,9 +172,9 @@ for row in st.session_state.grid:
 
 st.divider()
 
-# Betting system controls (Disabled during a free spins round to prevent messing up the math)
+# Betting system controls
 bet_selection = st.radio(
-    "Select Bet Size:", , 
+    "Select Bet Size:", [20, 50, 100, 500], 
     horizontal=True, 
     disabled=st.session_state.is_in_bonus
 )
@@ -204,4 +204,4 @@ else:
             st.write(f"• {report}")
             
         st.rerun()
-          
+        
