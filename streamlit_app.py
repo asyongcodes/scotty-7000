@@ -5,8 +5,8 @@ from collections import Counter
 # Set up page config for mobile screens
 st.set_page_config(page_title="Scatter Slots Sim", layout="centered")
 
-st.title("⚡ Gates of Python: Fixed Grid")
-st.write("Match 8+ symbols anywhere to win. Multipliers apply to winning combinations!")
+st.title("⚡ Gates of Python: Animated Edition")
+st.write("Match 8+ symbols. Features tumbling drop actions and matching visual pulses!")
 
 # Initialize the game's persistent state data
 if "balance" not in st.session_state:
@@ -17,6 +17,8 @@ if "active_multiplier" not in st.session_state:
     st.session_state.active_multiplier = 1
 if "grid" not in st.session_state:
     st.session_state.grid = [["💎" for _ in range(6)] for _ in range(5)]
+if "winning_coordinates" not in st.session_state:
+    st.session_state.winning_coordinates = [] # Track which layout items flashed
 
 # --- BONUS ROUND STATES ---
 if "free_spins_left" not in st.session_state:
@@ -57,6 +59,7 @@ def spin_engine(bet_amount):
     new_grid = []
     all_flat_symbols = []
     multiplier_values_found = []
+    st.session_state.winning_coordinates = [] # Clear last turns animations
     
     orb_chance = 0.09 if st.session_state.is_in_bonus else 0.05
     
@@ -69,7 +72,7 @@ def spin_engine(bet_amount):
                 row_symbols[col_idx] = SCATTER_BONUS_SYMBOL
             elif rand_roll < (0.04 + orb_chance):  # Orb
                 row_symbols[col_idx] = MULTIPLIER_ORB_SYMBOL
-                orb_value = random.choice([2, 5, 10, 25, 50])
+                orb_value = random.choice([2, 3, 5, 8, 10, 15, 25, 50])
                 multiplier_values_found.append(orb_value)
                 
         new_grid.append(row_symbols)
@@ -81,6 +84,7 @@ def spin_engine(bet_amount):
     symbol_counts = Counter(all_flat_symbols)
     base_spin_win = 0
     win_breakdown_messages = []
+    winning_symbols_set = set()
     
     for symbol, count in symbol_counts.items():
         if symbol in SYMBOLS_INFO and count >= 8:
@@ -88,10 +92,12 @@ def spin_engine(bet_amount):
             calculated_win = base_payout * (count - 7) * (bet_amount / 20)
             base_spin_win += int(calculated_win)
             win_breakdown_messages.append(f"{symbol} x{count} matched!")
+            winning_symbols_set.add(symbol) # Flag symbol for visual effect animation
             
         elif symbol == SCATTER_BONUS_SYMBOL and count >= 4:
             bonus_win = bet_amount * 5
             base_spin_win += int(bonus_win)
+            winning_symbols_set.add(SCATTER_BONUS_SYMBOL)
             
             if st.session_state.is_in_bonus:
                 st.session_state.free_spins_left += 5
@@ -102,6 +108,13 @@ def spin_engine(bet_amount):
                 st.session_state.global_bonus_multiplier = 1
                 st.session_state.total_bonus_win = 0
                 win_breakdown_messages.append(f"✨ BONUS ROUND TRIGGERED! 15 FREE SPINS ACTIVATED!")
+
+    # Locate coordinates of items that need the Flash effect
+    if winning_symbols_set:
+        for r in range(5):
+            for c in range(6):
+                if st.session_state.grid[r][c] in winning_symbols_set:
+                    st.session_state.winning_coordinates.append((r, c))
 
     # Multiplier calculations
     turn_multiplier_sum = sum(multiplier_values_found)
@@ -148,19 +161,50 @@ with stat_col3:
 
 st.divider()
 
-# --- FIXED MOBILE EMBED GRID LOOK ---
-# Generates a pure HTML matrix table to force rows to stay flat on your phone's screen
+# --- ANIMATED MATRIX CSS LAYER ---
 st.write("### 🎰 THE REELS")
 
-table_html = "<table style='width:100%; text-align:center; border-collapse:collapse; background:#1e1e24; border-radius:12px; font-size:28px;'>"
-for row in st.session_state.grid:
+# Pure inline style blocks defining drop animations and electric pulsing glows
+animation_styles = """
+<style>
+@keyframes dropIn {
+    0% { transform: translateY(-120px); opacity: 0; }
+    60% { transform: translateY(10px); opacity: 1; }
+    100% { transform: translateY(0); }
+}
+@keyframes popFlash {
+    0% { transform: scale(1); background: rgba(255, 215, 0, 0); box-shadow: none; }
+    50% { transform: scale(1.2); background: rgba(255, 215, 0, 0.4); box-shadow: 0 0 15px #ffd700, 0 0 25px #ff4500; border-radius: 50%; }
+    100% { transform: scale(1); background: rgba(255, 215, 0, 0); box-shadow: none; }
+}
+.reel-cell {
+    display: inline-block;
+    animation: dropIn 0.4s ease-out backwards;
+}
+.matching-cell {
+    display: inline-block;
+    animation: dropIn 0.4s ease-out backwards, popFlash 0.6s ease-in-out infinite alternate;
+}
+</style>
+"""
+
+table_html = animation_styles + "<table style='width:100%; text-align:center; border-collapse:collapse; background:#1e1e24; border-radius:12px; font-size:28px;'>"
+for r_idx, row in enumerate(st.session_state.grid):
     table_html += "<tr style='height: 60px; border-bottom: 1px solid #2d2d34;'>"
-    for cell in row:
-        table_html += f"<td>{cell}</td>"
+    for c_idx, cell in enumerate(row):
+        # Calculate staggering delay step based on row position to create a cascading "falling down" look
+        stagger_delay = r_idx * 0.06
+        
+        # Decide whether this symbol matched and needs the golden electric glow pulse animation
+        if (r_idx, c_idx) in st.session_state.winning_coordinates:
+            cell_class = "matching-cell"
+        else:
+            cell_class = "reel-cell"
+            
+        table_html += f"<td><span class='{cell_class}' style='animation-delay: {stagger_delay}s;'>{cell}</span></td>"
     table_html += "</tr>"
 table_html += "</table>"
 
-# Safely output the grid canvas directly onto the screen without it breaking vertically
 st.markdown(table_html, unsafe_allow_html=True)
 
 st.divider()
